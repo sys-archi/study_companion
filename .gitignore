@@ -1,0 +1,36 @@
+# Python
+*.pyc
+__pycache__/
+*.pyo
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# Django
+.env
+.env.*
+!.env.example
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+
+# RAG / runtime data
+vector_stores/
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs & OS
+*.log
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp

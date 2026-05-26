@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Study Companion — Your AI Study Buddy{% endblock %}
+
+{% block main_class %}{% endblock %}
+{% block content %}
+<section class="relative overflow-hidden">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 py-20 text-center">
+    <h1 class="text-4xl sm:text-5xl font-bold text-slate-900 tracking-tight">
+      Your smart <span class="text-indigo-600">study companion</span>
+    </h1>
+    <p class="mt-4 text-lg text-slate-600 max-w-2xl mx-auto">
+      Upload textbooks and notes. Ask questions, get explanations, generate quizzes,
+      and revise smarter — like studying with a patient classmate who never gets tired.
+    </p>
+    <div class="mt-8 flex flex-wrap justify-center gap-4">
+      <a href="{% url 'accounts:signup' %}" class="btn-primary px-6 py-3 text-base">Get Started Free</a>
+      <a href="{% url 'accounts:login' %}" class="btn-secondary px-6 py-3 text-base">Log In</a>
+    </div>
+  </div>
+
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 pb-20 grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div class="card text-left">
+      <div class="text-2xl mb-2">📚</div>
+      <h3 class="font-semibold text-slate-900">Upload & Learn</h3>
+      <p class="mt-2 text-sm text-slate-600">Upload PDFs or paste notes. We extract, chunk, and index your material for instant retrieval.</p>
+    </div>
+    <div class="card text-left">
+      <div class="text-2xl mb-2">💬</div>
+      <h3 class="font-semibold text-slate-900">AI Study Chat</h3>
+      <p class="mt-2 text-sm text-slate-600">Ask anything about your uploads. Answers are grounded in your material — not random internet facts.</p>
+    </div>
+    <div class="card text-left">
+      <div class="text-2xl mb-2">🔄</div>
+      <h3 class="font-semibold text-slate-900">"I Don't Understand"</h3>
+      <p class="mt-2 text-sm text-slate-600">One click for simpler explanations, analogies, step-by-step breakdowns, and confusion checkpoints.</p>
+    </div>
+    <div class="card text-left">
+      <div class="text-2xl mb-2">📝</div>
+      <h3 class="font-semibold text-slate-900">Auto Notes & Quizzes</h3>
+      <p class="mt-2 text-sm text-slate-600">Generate revision notes, summaries, and MCQ quizzes from your documents automatically.</p>
+    </div>
+    <div class="card text-left">
+      <div class="text-2xl mb-2">📊</div>
+      <h3 class="font-semibold text-slate-900">Track Progress</h3>
+      <p class="mt-2 text-sm text-slate-600">See weak topics, quiz scores, and what to revise next based on your study patterns.</p>
+    </div>
+    <div class="card text-left">
+      <div class="text-2xl mb-2">🎯</div>
+      <h3 class="font-semibold text-slate-900">Built for Students</h3>
+      <p class="mt-2 text-sm text-slate-600">Clear UI, educational tone, and features designed for real classroom study workflows.</p>
+    </div>
+  </div>
+</section>
+{% endblock %}

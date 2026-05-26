@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Upload — Study Companion{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <h1 class="text-2xl font-bold text-slate-900 mb-2">Upload Study Material</h1>
+  <p class="text-slate-600 mb-6 text-sm">Upload a PDF or paste your notes. We'll process and index it for AI-powered study.</p>
+
+  <div class="card">
+    <form method="post" enctype="multipart/form-data" class="space-y-4" id="upload-form">
+      {% csrf_token %}
+      {% for field in form %}
+      <div id="field-{{ field.name }}" {% if field.name == 'text_content' %}class="hidden"{% endif %}>
+        <label class="block text-sm font-medium text-slate-700 mb-1">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}<p class="text-xs text-slate-500 mt-1">{{ field.help_text }}</p>{% endif %}
+        {% if field.errors %}<p class="text-red-600 text-xs mt-1">{{ field.errors.0 }}</p>{% endif %}
+      </div>
+      {% endfor %}
+      {% if form.non_field_errors %}
+      <p class="text-red-600 text-sm">{{ form.non_field_errors.0 }}</p>
+      {% endif %}
+      <button type="submit" class="btn-primary w-full">Upload & Process</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const typeSelect = document.getElementById('doc-type-select');
+  const textField = document.getElementById('field-text_content');
+  const fileField = document.getElementById('field-file');
+
+  function toggleFields() {
+    const isText = typeSelect && typeSelect.value === 'text';
+    if (textField) textField.classList.toggle('hidden', !isText);
+    if (fileField) fileField.classList.toggle('hidden', isText);
+  }
+  if (typeSelect) {
+    typeSelect.addEventListener('change', toggleFields);
+    toggleFields();
+  }
+</script>
+{% endblock %}

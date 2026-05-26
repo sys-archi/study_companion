@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}My Documents — Study Companion{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+  <h1 class="text-2xl font-bold text-slate-900">My Documents</h1>
+  <a href="{% url 'documents:upload' %}" class="btn-primary">Upload New</a>
+</div>
+
+{% if documents %}
+<div class="grid gap-4">
+  {% for doc in documents %}
+  <div class="card flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div>
+      <a href="{% url 'documents:detail' doc.pk %}" class="font-semibold text-slate-900 hover:text-indigo-600">{{ doc.title }}</a>
+      <p class="text-sm text-slate-500 mt-1">
+        {{ doc.get_doc_type_display }} · {{ doc.subject|default:"General" }} · {{ doc.chunk_count }} chunks · {{ doc.created_at|date:"M d, Y" }}
+      </p>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="badge badge-{{ doc.status }}">{{ doc.get_status_display }}</span>
+      {% if doc.is_ready %}
+      <a href="{% url 'study:chat_start' doc.pk %}" class="btn-secondary text-xs">Study</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card text-center py-12">
+  <p class="text-slate-600">No documents uploaded yet.</p>
+  <a href="{% url 'documents:upload' %}" class="btn-primary mt-4 inline-block">Upload your first document</a>
+</div>
+{% endif %}
+{% endblock %}

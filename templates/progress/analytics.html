@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Progress — Study Companion{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-bold text-slate-900 mb-6">Study Progress</h1>
+
+<div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+  <div class="card text-center">
+    <p class="text-3xl font-bold text-indigo-600">{{ progress.total_questions }}</p>
+    <p class="text-sm text-slate-500 mt-1">Questions Asked</p>
+  </div>
+  <div class="card text-center">
+    <p class="text-3xl font-bold text-amber-600">{{ progress.reexplain_count }}</p>
+    <p class="text-sm text-slate-500 mt-1">Re-explanations</p>
+  </div>
+  <div class="card text-center">
+    <p class="text-3xl font-bold text-indigo-600">{{ progress.quiz_attempts }}</p>
+    <p class="text-sm text-slate-500 mt-1">Quiz Attempts</p>
+  </div>
+  <div class="card text-center">
+    <p class="text-3xl font-bold text-green-600">{{ progress.average_quiz_score }}%</p>
+    <p class="text-sm text-slate-500 mt-1">Avg Quiz Score</p>
+  </div>
+</div>
+
+<div class="grid lg:grid-cols-2 gap-6">
+  <div class="card">
+    <h2 class="font-semibold text-slate-900 mb-4">Weak Topics — Recommended Revision</h2>
+    {% if progress.weak_topics %}
+    <ul class="space-y-3">
+      {% for topic in progress.weak_topics %}
+      <li class="p-3 bg-amber-50 rounded-lg border border-amber-100">
+        <p class="font-medium text-sm text-slate-800">{{ topic.topic|truncatechars:80 }}</p>
+        <p class="text-xs text-slate-500 mt-1">{{ topic.reason }}</p>
+        <p class="text-xs text-amber-700 mt-1">Seen {{ topic.occurrence_count }} time{{ topic.occurrence_count|pluralize }}</p>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-sm text-slate-500">No weak topics identified yet. Keep studying!</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2 class="font-semibold text-slate-900 mb-4">Recent Quiz Attempts</h2>
+    {% if progress.recent_attempts %}
+    <ul class="space-y-3">
+      {% for attempt in progress.recent_attempts %}
+      <li class="flex justify-between py-2 border-b border-slate-100">
+        <span class="text-sm font-medium">{{ attempt.material.title|truncatechars:40 }}</span>
+        <span class="text-sm {% if attempt.percentage >= 60 %}text-green-600{% else %}text-red-600{% endif %}">
+          {{ attempt.score }}/{{ attempt.total }} ({{ attempt.percentage }}%)
+        </span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-sm text-slate-500">Take a quiz to track your performance.</p>
+    {% endif %}
+  </div>
+
+  <div class="card lg:col-span-2">
+    <h2 class="font-semibold text-slate-900 mb-4">Recent Questions</h2>
+    {% if progress.recent_questions %}
+    <ul class="space-y-2">
+      {% for q in progress.recent_questions %}
+      <li class="text-sm py-2 border-b border-slate-100">
+        <span class="text-slate-800">{{ q.question|truncatechars:100 }}</span>
+        <span class="text-xs text-slate-400 ml-2">{{ q.created_at|timesince }} ago</span>
+        {% if q.asked_reexplain %}<span class="badge badge-pending ml-2">Re-explained</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-sm text-slate-500">Start a study chat to log questions.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

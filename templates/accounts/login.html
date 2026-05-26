@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Log In — Study Companion{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto card">
+  <h1 class="text-xl font-bold text-slate-900 mb-6">Welcome back</h1>
+  <form method="post" class="space-y-4">
+    {% csrf_token %}
+    {% for field in form %}
+    <div>
+      <label class="block text-sm font-medium text-slate-700 mb-1">{{ field.label }}</label>
+      {{ field }}
+      {% if field.errors %}
+      <p class="text-red-600 text-xs mt-1">{{ field.errors.0 }}</p>
+      {% endif %}
+    </div>
+    {% endfor %}
+    <button type="submit" class="btn-primary w-full">Log In</button>
+  </form>
+  <p class="mt-4 text-sm text-slate-500 text-center">
+    New here? <a href="{% url 'accounts:signup' %}" class="text-indigo-600 hover:underline">Create an account</a>
+  </p>
+</div>
+{% endblock %}

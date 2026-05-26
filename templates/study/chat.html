@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}{{ session.title }} — Study Chat{% endblock %}
+
+{% block main_class %}max-w-4xl mx-auto px-4 sm:px-6 py-6 flex flex-col h-[calc(100vh-8rem)]{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-4 flex-shrink-0">
+  <div>
+    <a href="{% url 'study:chat_list' %}" class="text-sm text-indigo-600 hover:underline">← Sessions</a>
+    <h1 class="text-lg font-bold text-slate-900">{{ session.title }}</h1>
+    <p class="text-xs text-slate-500">Grounded in: {{ session.document.title }}</p>
+  </div>
+</div>
+
+<div id="chat-messages" class="flex-1 overflow-y-auto space-y-4 mb-4 pr-2">
+  {% for msg in chat_messages %}
+  <div class="flex {% if msg.role == 'user' %}justify-end{% else %}justify-start{% endif %}">
+    <div class="{% if msg.role == 'user' %}chat-bubble-user{% else %}chat-bubble-assistant{% endif %}">
+      <div class="prose-study">{{ msg.content }}</div>
+      {% if msg.role == 'assistant' and not msg.is_reexplain %}
+      <form method="post" action="{% url 'study:chat_reexplain' session.id %}" class="mt-3 reexplain-form">
+        {% csrf_token %}
+        <input type="hidden" name="message_id" value="{{ msg.id }}">
+        <button type="submit" class="btn-accent text-xs py-1 px-3">
+          I still don't understand
+        </button>
+      </form>
+      {% elif msg.is_reexplain %}
+      <p class="text-xs text-amber-600 mt-2">Simplified explanation (level {{ msg.reexplain_level }})</p>
+      {% endif %}
+    </div>
+  </div>
+  {% empty %}
+  <div class="text-center text-slate-500 py-12">
+    <p>Ask a question about your uploaded material.</p>
+    <p class="text-sm mt-2">e.g. "Explain photosynthesis in simple terms"</p>
+  </div>
+  {% endfor %}
+</div>
+
+<form method="post" action="{% url 'study:chat_ask' session.id %}" id="chat-form" class="flex-shrink-0 flex gap-2">
+  {% csrf_token %}
+  <input type="text" name="question" id="question-input" placeholder="Ask about your study material..."
+         class="form-input flex-1" required autocomplete="off">
+  <button type="submit" class="btn-primary" id="send-btn">Send</button>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const chatBox = document.getElementById('chat-messages');
+  if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
+</script>
+{% endblock %}

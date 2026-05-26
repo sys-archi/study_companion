@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Sign Up — Study Companion{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto card">
+  <h1 class="text-xl font-bold text-slate-900 mb-6">Create your account</h1>
+  <form method="post" class="space-y-4">
+    {% csrf_token %}
+    {% for field in form %}
+    <div>
+      <label class="block text-sm font-medium text-slate-700 mb-1">{{ field.label }}</label>
+      <input type="{{ field.field.widget.input_type|default:'text' }}"
+             name="{{ field.name }}"
+             id="{{ field.id_for_label }}"
+             value="{{ field.value|default:'' }}"
+             class="form-input"
+             {% if field.field.required %}required{% endif %}>
+      {% if field.errors %}
+      <p class="text-red-600 text-xs mt-1">{{ field.errors.0 }}</p>
+      {% endif %}
+    </div>
+    {% endfor %}
+    <button type="submit" class="btn-primary w-full">Sign Up</button>
+  </form>
+  <p class="mt-4 text-sm text-slate-500 text-center">
+    Already have an account? <a href="{% url 'accounts:login' %}" class="text-indigo-600 hover:underline">Log in</a>
+  </p>
+</div>
+{% endblock %}

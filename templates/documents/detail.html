@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}{{ document.title }} — Study Companion{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+  <a href="{% url 'documents:list' %}" class="text-sm text-indigo-600 hover:underline">← Back to documents</a>
+  <h1 class="text-2xl font-bold text-slate-900 mt-2">{{ document.title }}</h1>
+  <p class="text-slate-600 text-sm mt-1">
+    {{ document.get_doc_type_display }} · {{ document.subject|default:"General" }} ·
+    <span class="badge badge-{{ document.status }}">{{ document.get_status_display }}</span>
+  </p>
+</div>
+
+<div class="grid lg:grid-cols-3 gap-6">
+  <div class="lg:col-span-2 card">
+    <h2 class="font-semibold mb-3">Document Info</h2>
+    <dl class="grid sm:grid-cols-2 gap-3 text-sm">
+      <div><dt class="text-slate-500">Chunks indexed</dt><dd class="font-medium">{{ document.chunk_count }}</dd></div>
+      <div><dt class="text-slate-500">Uploaded</dt><dd class="font-medium">{{ document.created_at|date:"M d, Y H:i" }}</dd></div>
+      <div><dt class="text-slate-500">Text length</dt><dd class="font-medium">{{ document.extracted_text|length }} chars</dd></div>
+    </dl>
+    {% if document.error_message %}
+    <div class="mt-4 p-3 bg-red-50 text-red-700 text-sm rounded-lg">{{ document.error_message }}</div>
+    {% endif %}
+    {% if document.extracted_text %}
+    <details class="mt-4">
+      <summary class="text-sm text-indigo-600 cursor-pointer">Preview extracted text</summary>
+      <pre class="mt-2 text-xs text-slate-600 bg-slate-50 p-3 rounded-lg max-h-48 overflow-auto">{{ document.extracted_text|truncatechars:2000 }}</pre>
+    </details>
+    {% endif %}
+  </div>
+
+  <div class="space-y-4">
+    {% if document.is_ready %}
+    <div class="card">
+      <h3 class="font-semibold mb-3">Study Actions</h3>
+      <div class="space-y-2">
+        <a href="{% url 'study:chat_start' document.pk %}" class="btn-primary w-full text-center block">Start Study Chat</a>
+        <form method="post" action="{% url 'study:generate' document.pk %}">
+          {% csrf_token %}
+          <input type="hidden" name="type" value="notes">
+          <button type="submit" class="btn-secondary w-full">Generate Notes</button>
+        </form>
+        <form method="post" action="{% url 'study:generate' document.pk %}">
+          {% csrf_token %}
+          <input type="hidden" name="type" value="summary">
+          <button type="submit" class="btn-secondary w-full">Generate Summary</button>
+        </form>
+        <form method="post" action="{% url 'study:generate' document.pk %}">
+          {% csrf_token %}
+          <input type="hidden" name="type" value="quiz">
+          <button type="submit" class="btn-secondary w-full">Generate Quiz</button>
+        </form>
+      </div>
+    </div>
+    {% else %}
+    <div class="card">
+      <p class="text-sm text-slate-600 mb-3">Document is not ready for study yet.</p>
+      <a href="{% url 'documents:reprocess' document.pk %}" class="btn-secondary w-full text-center block">Reprocess</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

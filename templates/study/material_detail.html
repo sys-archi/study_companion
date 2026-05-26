@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}{{ material.title }} — Study Companion{% endblock %}
+
+{% block content %}
+<a href="{% url 'study:materials' %}" class="text-sm text-indigo-600 hover:underline">← All materials</a>
+<h1 class="text-2xl font-bold text-slate-900 mt-2 mb-1">{{ material.title }}</h1>
+<p class="text-sm text-slate-500 mb-6">{{ material.get_material_type_display }} · {{ material.document.title }}</p>
+
+{% if material.material_type == 'quiz' and quiz_data.questions %}
+<div class="card" id="quiz-container">
+  <div id="quiz-questions">
+    {% for q in quiz_data.questions %}
+    <div class="quiz-question mb-6 pb-6 border-b border-slate-100 last:border-0" data-index="{{ forloop.counter0 }}">
+      <p class="font-medium text-slate-900 mb-3">{{ forloop.counter }}. {{ q.question }}</p>
+      <div class="space-y-2">
+        {% for opt in q.options %}
+        <label class="flex items-center gap-2 p-2 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer">
+          <input type="radio" name="q{{ forloop.parentloop.counter0 }}" value="{{ forloop.counter0 }}" class="quiz-option">
+          <span class="text-sm">{{ opt }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      <p class="explanation hidden mt-2 text-sm text-green-700 bg-green-50 p-2 rounded">{{ q.explanation }}</p>
+    </div>
+    {% endfor %}
+  </div>
+  <button type="button" id="submit-quiz" class="btn-primary">Submit Quiz</button>
+  <div id="quiz-result" class="hidden mt-4 p-4 bg-indigo-50 rounded-lg text-indigo-800 font-medium"></div>
+</div>
+{% else %}
+<div class="card">
+  <div class="prose-study">{{ material.content }}</div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% if material.material_type == 'quiz' and quiz_data.questions %}
+<script>
+  document.getElementById('submit-quiz').addEventListener('click', async () => {
+    const answers = {};
+    document.querySelectorAll('.quiz-question').forEach((el) => {
+      const idx = el.dataset.index;
+      const selected = el.querySelector('input:checked');
+      if (selected) answers[idx] = parseInt(selected.value);
+    });
+    const resp = await fetch("{% url 'progress:submit_quiz' material.pk %}", {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': '{{ csrf_token }}',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      body: JSON.stringify({ answers }),
+    });
+    const data = await resp.json();
+    document.getElementById('quiz-result').classList.remove('hidden');
+    document.getElementById('quiz-result').textContent =
+      `Score: ${data.score}/${data.total} (${data.percentage}%)`;
+    document.querySelectorAll('.explanation').forEach(el => el.classList.remove('hidden'));
+  });
+</script>
+{% endif %}
+{% endblock %}

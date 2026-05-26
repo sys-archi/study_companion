@@ -1,0 +1,29 @@
+Photosynthesis
+
+Photosynthesis is the process by which green plants and some other organisms use sunlight to synthesize foods from carbon dioxide and water. Photosynthesis in plants generally involves the green pigment chlorophyll and generates oxygen as a by-product.
+
+The process occurs mainly in the chloroplasts of plant leaf cells. Chloroplasts contain chlorophyll, which absorbs light energy (mostly red and blue wavelengths).
+
+Stages of Photosynthesis:
+
+1. Light-dependent reactions (Light Reactions)
+These occur in the thylakoid membranes of the chloroplasts. Light energy is absorbed by chlorophyll and converted into chemical energy in the form of ATP and NADPH. Water molecules are split (photolysis), releasing oxygen as a waste product.
+
+2. Light-independent reactions (Calvin Cycle / Dark Reactions)
+These occur in the stroma of the chloroplasts. Carbon dioxide from the atmosphere is fixed into organic molecules using the ATP and NADPH produced in the light reactions. The end product is glucose (C6H12O6), which plants use for energy and growth.
+
+The overall equation for photosynthesis:
+6CO2 + 6H2O + light energy → C6H12O6 + 6O2
+
+Factors affecting the rate of photosynthesis:
+- Light intensity: More light generally increases the rate up to a saturation point.
+- Carbon dioxide concentration: Higher CO2 levels can increase the rate.
+- Temperature: Enzymes work faster at optimal temperatures; too high damages enzymes.
+- Water availability: Lack of water closes stomata, reducing CO2 intake.
+
+Importance of photosynthesis:
+- Produces oxygen essential for aerobic respiration in animals and humans.
+- Forms the base of most food chains.
+- Removes carbon dioxide from the atmosphere.
+
+Cellular respiration is the opposite process — it breaks down glucose to release energy for the cell. Together, photosynthesis and respiration form a cycle of energy flow in ecosystems.
