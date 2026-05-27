@@ -84,6 +84,8 @@ Without an API key, the app uses a **grounded fallback mode** that builds answer
 
 ### 4. Run migrations & start server
 
+Migrations are included in the repo. If you change models, run `python manage.py makemigrations` first.
+
 ```bash
 python manage.py migrate
 python manage.py createsuperuser   # optional, for admin

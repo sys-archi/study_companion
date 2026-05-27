@@ -1,7 +1,8 @@
-"""OpenAI-compatible LLM client with grounded fallback when no API key is set."""
+"""OpenAI-compatible LLM client with grounded fallback systems."""
 
 import json
 import logging
+import random
 import re
 
 from django.conf import settings
@@ -11,9 +12,20 @@ from ai.prompts import SYSTEM_TUTOR
 logger = logging.getLogger(__name__)
 
 
-def _has_api_key() -> bool:
-    return bool(settings.OPENAI_API_KEY and settings.OPENAI_API_KEY.strip())
+# =========================================================
+# API AVAILABILITY
+# =========================================================
 
+def _has_api_key() -> bool:
+    return bool(
+        settings.OPENAI_API_KEY
+        and settings.OPENAI_API_KEY.strip()
+    )
+
+
+# =========================================================
+# OPENAI / GROQ CALL
+# =========================================================
 
 def _call_openai(messages: list[dict], temperature: float = 0.3) -> str:
     from openai import OpenAI
@@ -21,151 +33,425 @@ def _call_openai(messages: list[dict], temperature: float = 0.3) -> str:
     client = OpenAI(
         api_key=settings.OPENAI_API_KEY,
         base_url=settings.OPENAI_BASE_URL,
+        timeout=60,
     )
+
     response = client.chat.completions.create(
         model=settings.OPENAI_MODEL,
         messages=messages,
         temperature=temperature,
     )
+
     return response.choices[0].message.content or ""
 
 
+# =========================================================
+# MAIN GENERATION ENTRY
+# =========================================================
+
 def generate(messages: list[dict], temperature: float = 0.3) -> str:
-    """Generate text via LLM API or grounded fallback."""
+    """
+    Generate text using API if available.
+    Otherwise use grounded fallback logic.
+    """
+
     if _has_api_key():
         try:
             return _call_openai(messages, temperature=temperature)
+
         except Exception as exc:
-            logger.warning("LLM API call failed, using fallback: %s", exc)
+            logger.warning(
+                "LLM API call failed. Using fallback. Error: %s",
+                exc,
+            )
 
     user_content = ""
+
     for msg in messages:
         if msg["role"] == "user":
             user_content = msg["content"]
             break
+
     return _grounded_fallback(user_content)
 
 
+# =========================================================
+# FALLBACK ROUTER
+# =========================================================
+
 def _grounded_fallback(user_prompt: str) -> str:
-    """
-    Build a response from retrieved context embedded in the prompt.
-    Ensures the app remains functional without an API key.
-    """
+
     context_match = re.search(
         r"(?:Study material context:|Material:)\s*\n---\s*\n(.*?)\n---",
         user_prompt,
         re.DOTALL,
     )
-    context = context_match.group(1).strip() if context_match else ""
+
+    context = (
+        context_match.group(1).strip()
+        if context_match
+        else ""
+    )
 
     question_match = re.search(
         r"(?:Student question:|Original question:)\s*(.+?)(?:\n\n|$)",
         user_prompt,
         re.DOTALL,
     )
-    question = question_match.group(1).strip() if question_match else "your question"
 
-    if "Re-explain" in user_prompt or "SIMPLER" in user_prompt:
+    question = (
+        question_match.group(1).strip()
+        if question_match
+        else "your question"
+    )
+
+    lowered = user_prompt.lower()
+
+    if "re-explain" in lowered or "simpler" in lowered:
         return _fallback_reexplain(context, question)
-    if "revision notes" in user_prompt.lower():
+
+    if "revision notes" in lowered:
         return _fallback_notes(context)
-    if "quiz" in user_prompt.lower() and "JSON" in user_prompt:
+
+    if "quiz" in lowered and "json" in lowered:
         return json.dumps(_fallback_quiz(context))
-    if "Summarize" in user_prompt:
+
+    if "summarize" in lowered or "summary" in lowered:
         return _fallback_summary(context)
 
     return _fallback_answer(context, question)
 
 
+# =========================================================
+# CLEAN TEXT HELPERS
+# =========================================================
+
+def _clean_context(context: str) -> str:
+
+    lines = []
+
+    for line in context.splitlines():
+
+        stripped = line.strip()
+
+        if not stripped:
+            continue
+
+        lower = stripped.lower()
+
+        noisy_patterns = [
+            "created by",
+            "copyright",
+            "ministry",
+            "science branch",
+            "isurupaya",
+            "page ",
+        ]
+
+        if any(p in lower for p in noisy_patterns):
+            continue
+
+        if len(stripped) < 4:
+            continue
+
+        lines.append(stripped)
+
+    return "\n".join(lines)
+
+
+# =========================================================
+# FALLBACK ANSWER
+# =========================================================
+
 def _fallback_answer(context: str, question: str) -> str:
+
+    context = _clean_context(context)
+
     if not context:
         return (
-            "I don't have enough material from your uploads to answer that. "
-            "Try uploading a textbook or notes on this topic first."
+            "I could not find enough relevant study material "
+            "to answer this question."
         )
-    snippets = [s.strip() for s in context.split("\n\n") if s.strip()][:3]
-    body = "\n\n".join(f"• {s[:400]}{'...' if len(s) > 400 else ''}" for s in snippets)
-    return (
-        f"**Answer (from your study material)**\n\n"
-        f"Based on what you uploaded, here's what relates to *{question}*:\n\n"
-        f"{body}\n\n"
-        f"*Tip:* Click **I still don't understand** if you'd like a simpler explanation "
-        f"with examples and step-by-step breakdown."
+
+    snippets = [
+        s.strip()
+        for s in context.split("\n\n")
+        if s.strip()
+    ][:3]
+
+    body = "\n\n".join(
+        f"• {s[:350]}{'...' if len(s) > 350 else ''}"
+        for s in snippets
     )
 
+    return (
+        f"**Answer based on your uploaded material**\n\n"
+        f"Question: {question}\n\n"
+        f"{body}\n\n"
+        f"If this still feels confusing, click "
+        f"**I still don't understand** for a simpler explanation."
+    )
+
+
+# =========================================================
+# FALLBACK REEXPLAIN
+# =========================================================
 
 def _fallback_reexplain(context: str, question: str) -> str:
-    steps = [
-        "Let's break this down into smaller pieces.",
-        "Think of it like building blocks — each part connects to the next.",
-        "Focus on one idea at a time before moving on.",
-    ]
-    analogy = (
-        "Imagine explaining this to a friend who's never seen the topic before — "
-        "use everyday examples they already know."
-    )
-    watch_out = "- New vocabulary\n- Skipping steps\n- Mixing up similar concepts"
+
+    context = _clean_context(context)
+
+    short_context = context[:700]
+
     return (
-        f"**Simpler explanation**\n\n"
-        f"**Your question:** {question}\n\n"
-        f"**Step by step:**\n"
-        + "\n".join(f"{i + 1}. {s}" for i, s in enumerate(steps))
-        + f"\n\n**Analogy:** {analogy}\n\n"
-        f"**From your material:**\n{context[:600]}{'...' if len(context) > 600 else ''}\n\n"
-        f"**Watch out for:**\n{watch_out}\n\n"
-        f"**Check yourself:** Can you explain the main idea in one sentence?"
+        f"## Simpler Explanation\n\n"
+        f"### Your Question\n"
+        f"{question}\n\n"
+        f"### Main Idea\n"
+        f"The topic can be understood by focusing on the "
+        f"core concept step by step.\n\n"
+        f"### From Your Material\n"
+        f"{short_context}\n\n"
+        f"### Study Tip\n"
+        f"Try explaining the concept in your own words "
+        f"using one simple sentence."
     )
 
+
+# =========================================================
+# FALLBACK NOTES
+# =========================================================
 
 def _fallback_notes(context: str) -> str:
-    lines = [ln.strip() for ln in context.split("\n") if ln.strip()][:12]
-    bullets = "\n".join(f"- {ln[:200]}" for ln in lines[:8])
-    return f"**Revision Notes**\n\n{bullets}\n\n**Remember:**\n- Review in short sessions\n- Test yourself with the quiz feature"
 
+    context = _clean_context(context)
+
+    lines = [
+        ln.strip()
+        for ln in context.split("\n")
+        if len(ln.strip()) > 20
+    ]
+
+    unique = []
+
+    seen = set()
+
+    for line in lines:
+
+        normalized = line.lower()
+
+        if normalized in seen:
+            continue
+
+        seen.add(normalized)
+        unique.append(line)
+
+    bullets = "\n".join(
+        f"- {ln[:180]}"
+        for ln in unique[:8]
+    )
+
+    return (
+        f"## Revision Notes\n\n"
+        f"{bullets}\n\n"
+        f"### Study Advice\n"
+        f"- Review actively\n"
+        f"- Test yourself regularly\n"
+        f"- Revisit difficult concepts"
+    )
+
+
+# =========================================================
+# FALLBACK SUMMARY
+# =========================================================
 
 def _fallback_summary(context: str) -> str:
-    sentences = re.split(r"[.!?]+\s+", context)
-    sentences = [s.strip() for s in sentences if len(s.strip()) > 20][:5]
-    return "\n".join(f"- {s}" for s in sentences) or "- Upload more content for a richer summary."
 
+    context = _clean_context(context)
+
+    sentences = [
+        s.strip()
+        for s in re.split(r"[.!?]+\s+", context)
+        if len(s.strip()) > 40
+    ]
+
+    unique = []
+
+    seen = set()
+
+    for sentence in sentences:
+
+        normalized = sentence.lower()
+
+        if normalized in seen:
+            continue
+
+        seen.add(normalized)
+        unique.append(sentence)
+
+    if not unique:
+        return (
+            "- No meaningful educational content "
+            "was detected in the uploaded document."
+        )
+
+    return "\n".join(
+        f"- {s[:250]}"
+        for s in unique[:6]
+    )
+
+
+# =========================================================
+# FALLBACK QUIZ
+# =========================================================
 
 def _fallback_quiz(context: str) -> dict:
-    sentences = [s.strip() for s in re.split(r"[.!?]+\s+", context) if len(s.strip()) > 30]
+    """
+    Generate educational MCQs from uploaded material.
+    """
+
+    context = _clean_context(context)
+
+    sentences = [
+        s.strip()
+        for s in re.split(r"[.!?]+\s+", context)
+        if len(s.strip()) > 70
+    ]
+
     questions = []
-    for i, sent in enumerate(sentences[:5]):
-        words = sent.split()
-        if len(words) < 5:
+
+    used_concepts = set()
+
+    for sent in sentences[:30]:
+
+        lower = sent.lower()
+
+        if any(noise in lower for noise in [
+            "created by",
+            "copyright",
+            "ministry",
+            "page ",
+        ]):
             continue
-        key_word = words[len(words) // 2] if len(words) > 3 else words[0]
-        questions.append(
-            {
-                "question": f"According to your material, which statement best relates to: '{sent[:80]}...'?",
-                "options": [
-                    f"It involves '{key_word}' and related concepts",
-                    "This topic is not covered in the material",
-                    "The opposite is stated in the material",
-                    "None of the above",
-                ],
-                "correct_index": 0,
-                "explanation": "This answer is grounded in your uploaded study material.",
-            }
+
+        words = [
+            w.strip(".,:;!?()")
+            for w in sent.split()
+        ]
+
+        candidate_words = [
+            w.lower()
+            for w in words
+            if (
+                len(w) > 6
+                and w.isalpha()
+                and w.lower() not in {
+                    "because",
+                    "therefore",
+                    "however",
+                    "activity",
+                    "programme",
+                    "question",
+                    "students",
+                    "teacher",
+                }
+            )
+        ]
+
+        if not candidate_words:
+            continue
+
+        concept = candidate_words[0]
+
+        if concept in used_concepts:
+            continue
+
+        used_concepts.add(concept)
+
+        question_text = (
+            f"According to your uploaded material, "
+            f"which statement best explains '{concept}'?"
         )
+
+        correct_answer = sent[:180]
+
+        wrong_answers = [
+            f"{concept.capitalize()} is unrelated to the study topic.",
+            f"The document states that {concept} should be ignored.",
+            f"{concept.capitalize()} is presented as unimportant in the material.",
+        ]
+
+        options = [
+            correct_answer,
+            *wrong_answers,
+        ]
+
+        # RANDOMIZE OPTION ORDER
+        random.shuffle(options)
+
+        correct_index = options.index(correct_answer)
+
+        explanation = (
+            f"Correct answer:\n\n"
+            f"{correct_answer}\n\n"
+            f"This was taken directly from your uploaded study material."
+        )
+
+        questions.append({
+            "question": question_text,
+            "options": options,
+            "correct_index": correct_index,
+            "explanation": explanation,
+        })
+
+        if len(questions) >= 5:
+            break
+
     if not questions:
+
         questions = [
             {
-                "question": "Have you uploaded study material for this document?",
-                "options": ["Yes", "No", "Partially", "Not sure"],
+                "question": (
+                    "Was enough educational material detected "
+                    "to generate a meaningful quiz?"
+                ),
+                "options": [
+                    "Yes",
+                    "No",
+                    "Partially",
+                    "Unclear",
+                ],
                 "correct_index": 0,
-                "explanation": "Upload PDFs or notes to generate better quizzes.",
+                "explanation": (
+                    "The uploaded document may not contain enough "
+                    "clean educational text for quiz generation."
+                ),
             }
         ]
-    return {"title": "Study Quiz", "questions": questions[:5]}
+
+    return {
+        "title": "Study Quiz",
+        "questions": questions,
+    }
 
 
-def chat_with_context(context: str, question: str, system: str = SYSTEM_TUTOR) -> str:
+# =========================================================
+# CHAT
+# =========================================================
+
+def chat_with_context(
+    context: str,
+    question: str,
+    system: str = SYSTEM_TUTOR,
+) -> str:
+
     from ai.prompts import CHAT_USER_TEMPLATE
 
-    user_msg = CHAT_USER_TEMPLATE.format(context=context, question=question)
+    user_msg = CHAT_USER_TEMPLATE.format(
+        context=context,
+        question=question,
+    )
+
     return generate(
         [
             {"role": "system", "content": system},
@@ -174,9 +460,17 @@ def chat_with_context(context: str, question: str, system: str = SYSTEM_TUTOR) -
     )
 
 
+# =========================================================
+# REEXPLAIN
+# =========================================================
+
 def reexplain_with_context(
-    context: str, question: str, previous_answer: str, difficulty: int = 1
+    context: str,
+    question: str,
+    previous_answer: str,
+    difficulty: int = 1,
 ) -> str:
+
     from ai.prompts import REEXPLAIN_USER_TEMPLATE
 
     user_msg = REEXPLAIN_USER_TEMPLATE.format(
@@ -185,6 +479,7 @@ def reexplain_with_context(
         previous_answer=previous_answer,
         difficulty=difficulty,
     )
+
     return generate(
         [
             {"role": "system", "content": SYSTEM_TUTOR},
@@ -194,8 +489,21 @@ def reexplain_with_context(
     )
 
 
-def generate_study_material(prompt_template: str, context: str, **kwargs) -> str:
-    user_msg = prompt_template.format(context=context, **kwargs)
+# =========================================================
+# STUDY MATERIAL GENERATION
+# =========================================================
+
+def generate_study_material(
+    prompt_template: str,
+    context: str,
+    **kwargs,
+) -> str:
+
+    user_msg = prompt_template.format(
+        context=context,
+        **kwargs,
+    )
+
     return generate(
         [
             {"role": "system", "content": SYSTEM_TUTOR},

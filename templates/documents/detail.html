@@ -59,6 +59,17 @@
       <a href="{% url 'documents:reprocess' document.pk %}" class="btn-secondary w-full text-center block">Reprocess</a>
     </div>
     {% endif %}
+
+    <div class="card border-red-100">
+      <h3 class="font-semibold text-red-700 mb-2">Danger zone</h3>
+      <form method="post" action="{% url 'documents:delete' document.pk %}"
+            onsubmit="return confirm('Delete this document and all study data for it?');">
+        {% csrf_token %}
+        <button type="submit" class="btn-secondary w-full text-red-600 border-red-200 hover:bg-red-50">
+          Delete document
+        </button>
+      </form>
+    </div>
   </div>
 </div>
 {% endblock %}

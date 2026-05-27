@@ -14,9 +14,9 @@
 
 <div id="chat-messages" class="flex-1 overflow-y-auto space-y-4 mb-4 pr-2">
   {% for msg in chat_messages %}
-  <div class="flex {% if msg.role == 'user' %}justify-end{% else %}justify-start{% endif %}">
+  <div class="flex {% if msg.role == 'user' %}justify-end{% else %}justify-start{% endif %}" data-message-id="{{ msg.id }}">
     <div class="{% if msg.role == 'user' %}chat-bubble-user{% else %}chat-bubble-assistant{% endif %}">
-      <div class="prose-study">{{ msg.content }}</div>
+      <div class="prose-study message-body">{{ msg.content }}</div>
       {% if msg.role == 'assistant' and not msg.is_reexplain %}
       <form method="post" action="{% url 'study:chat_reexplain' session.id %}" class="mt-3 reexplain-form">
         {% csrf_token %}
@@ -31,7 +31,7 @@
     </div>
   </div>
   {% empty %}
-  <div class="text-center text-slate-500 py-12">
+  <div id="chat-empty" class="text-center text-slate-500 py-12">
     <p>Ask a question about your uploaded material.</p>
     <p class="text-sm mt-2">e.g. "Explain photosynthesis in simple terms"</p>
   </div>
@@ -48,7 +48,142 @@
 
 {% block extra_js %}
 <script>
+(function () {
+  const sessionId = {{ session.id }};
   const chatBox = document.getElementById('chat-messages');
-  if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
+  const chatForm = document.getElementById('chat-form');
+  const questionInput = document.getElementById('question-input');
+  const sendBtn = document.getElementById('send-btn');
+  const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  function formatMessage(text) {
+    return escapeHtml(text)
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\n/g, '<br>');
+  }
+
+  function scrollToBottom() {
+    if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
+  }
+
+  function appendMessage(role, content, options = {}) {
+    const empty = document.getElementById('chat-empty');
+    if (empty) empty.remove();
+
+    const wrap = document.createElement('div');
+    wrap.className = 'flex ' + (role === 'user' ? 'justify-end' : 'justify-start');
+    if (options.messageId) wrap.dataset.messageId = options.messageId;
+
+    const bubble = document.createElement('div');
+    bubble.className = role === 'user' ? 'chat-bubble-user' : 'chat-bubble-assistant';
+
+    const body = document.createElement('div');
+    body.className = 'prose-study message-body';
+    body.innerHTML = formatMessage(content);
+    bubble.appendChild(body);
+
+    if (role === 'assistant' && !options.isReexplain && options.messageId) {
+      const form = document.createElement('form');
+      form.method = 'post';
+      form.action = '{% url "study:chat_reexplain" session.id %}';
+      form.className = 'mt-3 reexplain-form';
+      form.innerHTML =
+        '<input type="hidden" name="csrfmiddlewaretoken" value="' + csrfToken + '">' +
+        '<input type="hidden" name="message_id" value="' + options.messageId + '">' +
+        '<button type="submit" class="btn-accent text-xs py-1 px-3">I still don\'t understand</button>';
+      bubble.appendChild(form);
+    } else if (options.isReexplain) {
+      const note = document.createElement('p');
+      note.className = 'text-xs text-amber-600 mt-2';
+      note.textContent = 'Simplified explanation (level ' + (options.level || 1) + ')';
+      bubble.appendChild(note);
+    }
+
+    wrap.appendChild(bubble);
+    chatBox.appendChild(wrap);
+    scrollToBottom();
+    return wrap;
+  }
+
+  async function postForm(url, formData) {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      body: formData,
+    });
+    {#if (!response.ok) throw new Error('Request failed');#}
+     
+      if (!response.ok) {
+  const errorText = await response.text();
+  console.error("SERVER ERROR:", errorText);
+  throw new Error(errorText || 'Request failed');
+}
+      
+    return response.json();
+  }
+
+  chatForm.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const question = questionInput.value.trim();
+    if (!question) return;
+
+    appendMessage('user', question);
+    
+    const formData = new FormData(chatForm);
+    questionInput.value = '';
+    sendBtn.disabled = true;
+    
+    try {
+      const data = await postForm(chatForm.action, formData);
+      appendMessage('assistant', data.assistant_message.content, {
+        messageId: data.assistant_message.id,
+      });
+    } catch (err) {
+  console.error(err);
+
+  appendMessage(
+    'assistant',
+    'System error:\n\n' + err.message
+  );
+} finally {
+      sendBtn.disabled = false;
+      questionInput.focus();
+    }
+  });
+
+  chatBox.addEventListener('submit', async function (e) {
+    const form = e.target.closest('.reexplain-form');
+    if (!form) return;
+    e.preventDefault();
+
+    const btn = form.querySelector('button');
+    btn.disabled = true;
+
+    const formData = new FormData(form);
+    try {
+      const data = await postForm(form.action, formData);
+      appendMessage('assistant', data.assistant_message.content, {
+        isReexplain: true,
+        level: data.assistant_message.reexplain_level || 1,
+      });
+    } catch (err) {
+      appendMessage('assistant', 'Could not simplify the explanation. Please try again.');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.querySelectorAll('.message-body').forEach(function (el) {
+    el.innerHTML = formatMessage(el.textContent);
+  });
+
+  scrollToBottom();
+})();
 </script>
 {% endblock %}

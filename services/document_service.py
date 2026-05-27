@@ -1,6 +1,10 @@
 """Document ingestion: parse, chunk, embed, index."""
 
+# import logging
+
 import logging
+import re
+from collections import Counter
 
 import fitz
 from django.conf import settings
@@ -12,7 +16,70 @@ from ai.vector_store import DocumentVectorStore
 from apps.documents.models import Document, DocumentChunk
 
 logger = logging.getLogger(__name__)
+def clean_extracted_text(text: str) -> str:
+    """
+    Clean noisy PDF extraction artifacts before chunking.
+    Removes repeated headers, footers, metadata,
+    author lines, and low-value repeated content.
+    """
 
+    lines = [
+        line.strip()
+        for line in text.splitlines()
+        if line.strip()
+    ]
+
+    counts = Counter(lines)
+
+    cleaned = []
+
+    blocked_patterns = [
+        "ministry of education",
+        "science branch",
+        "created by",
+        "isurupaya",
+        "copyright",
+        "page ",
+    ]
+
+    for line in lines:
+
+        lower = line.lower()
+
+        # Remove heavily repeated lines
+        if counts[line] >= 2:
+            continue
+
+        # Remove known boilerplate
+        # if any(pattern in lower for pattern in blocked_patterns):
+
+            normalized = re.sub(r"\s+", " ", lower)
+
+            if (
+                    "ministry" in normalized
+                    or "created by" in normalized
+                    or "science branch" in normalized
+                    or "isurupaya" in normalized
+                    or "copyright" in normalized
+            ):
+             continue
+
+        # Remove tiny/noisy fragments
+        if len(line) < 3:
+            continue
+
+        # Remove symbol-only garbage
+        if re.fullmatch(r"[\W_]+", line):
+            continue
+
+        cleaned.append(line)
+
+    cleaned_text = "\n".join(cleaned)
+
+    # Normalize spacing
+    cleaned_text = re.sub(r"\n{3,}", "\n\n", cleaned_text)
+
+    return cleaned_text.strip()
 
 def extract_text_from_pdf(file_path: str) -> str:
     """Extract plain text from a PDF using PyMuPDF."""
@@ -48,15 +115,22 @@ def process_document(document_id: int) -> Document:
 
     try:
         raw_text = extract_text_from_file(document)
-        if not raw_text:
+
+        cleaned_text = clean_extracted_text(raw_text)
+        print("\n========== CLEANED TEXT SAMPLE ==========")
+        print(cleaned_text[:1500])
+        print("=========================================\n")
+
+        if not cleaned_text:
             document.status = Document.STATUS_FAILED
             document.error_message = "No text could be extracted from this file."
             document.save(update_fields=["status", "error_message"])
             return document
 
-        document.extracted_text = raw_text
+        document.extracted_text = cleaned_text
+
         chunks = chunk_text(
-            raw_text,
+            cleaned_text,
             chunk_size=settings.CHUNK_SIZE,
             overlap=settings.CHUNK_OVERLAP,
         )
@@ -106,3 +180,11 @@ def process_document(document_id: int) -> Document:
         document.save(update_fields=["status", "error_message"])
 
     return document
+
+
+def delete_document(document: Document) -> None:
+    """Remove document files, chunks, and FAISS index."""
+    DocumentVectorStore(document.id).delete()
+    if document.file:
+        document.file.delete(save=False)
+    document.delete()

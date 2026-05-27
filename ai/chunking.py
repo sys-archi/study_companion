@@ -34,4 +34,17 @@ def chunk_text(text: str, chunk_size: int = 500, overlap: int = 80) -> list[str]
             break
         start = max(end - overlap, start + 1)
 
-    return chunks
+    # Remove duplicate chunks
+    unique_chunks = []
+    seen = set()
+
+    for chunk in chunks:
+        normalized = chunk.strip().lower()
+
+        if normalized in seen:
+            continue
+
+        seen.add(normalized)
+        unique_chunks.append(chunk)
+
+    return unique_chunks

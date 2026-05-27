@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.study.models import ChatMessage, ChatSession, GeneratedMaterial
+from apps.study.utils import get_question_for_assistant
 from apps.study.serializers import GeneratedMaterialSerializer
 from services.progress_service import log_question
 from services.rag_service import answer_question, reexplain_answer
@@ -49,8 +50,7 @@ class ChatReexplainAPIView(APIView):
         if not assistant_msg:
             return Response({"error": "Message not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        user_msgs = session.messages.filter(role=ChatMessage.ROLE_USER).order_by("-created_at")
-        question = user_msgs.first().content if user_msgs.exists() else "Explain again"
+        question = get_question_for_assistant(assistant_msg)
         new_level = assistant_msg.reexplain_level + 1
 
         result = reexplain_answer(

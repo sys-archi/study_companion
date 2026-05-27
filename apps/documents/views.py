@@ -1,10 +1,11 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
 from apps.documents.forms import DocumentUploadForm
 from apps.documents.models import Document
-from services.document_service import process_document
+from services.document_service import delete_document, process_document
 
 
 @login_required
@@ -50,3 +51,13 @@ def reprocess_view(request, pk):
     document.refresh_from_db()
     messages.info(request, "Document reprocessed.")
     return redirect("documents:detail", pk=pk)
+
+
+@login_required
+@require_POST
+def delete_view(request, pk):
+    document = get_object_or_404(Document, pk=pk, user=request.user)
+    title = document.title
+    delete_document(document)
+    messages.success(request, f'"{title}" was deleted.')
+    return redirect("documents:list")
