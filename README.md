@@ -155,6 +155,28 @@ User question → Embed query → FAISS search → Top-K chunks → LLM prompt �
 - **Per-document FAISS indexes** stored on disk for simplicity (upgrade path: shared vector DB)
 - **Grounded fallback** ensures demo functionality without external API costs
 
+## App screen shots
+
+![home_screen.png](app_screen_shots%2Fhome_screen.png)
+
+![sign_up.png](app_screen_shots%2Fsign_up.png)
+
+![log_in.png](app_screen_shots%2Flog_in.png)
+
+![dashboard.png](app_screen_shots%2Fdashboard.png)
+
+![docs_uploading.png](app_screen_shots%2Fdocs_uploading.png)
+
+![docs_uploaded.png](app_screen_shots%2Fdocs_uploaded.png)
+
+![materials_uploaded.png](app_screen_shots%2Fmaterials_uploaded.png)
+
+![chat_function.png](app_screen_shots%2Fchat_function.png)
+
+![progress_monitoring.png](app_screen_shots%2Fprogress_monitoring.png)
+
+
+
 ## License
 
 Educational / demonstration project.
